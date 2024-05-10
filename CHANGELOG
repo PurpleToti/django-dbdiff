@@ -1,5 +1,7 @@
 Unreleased Refresh supported dependencies and support
 
+0.9.6 Add support for Python 3.12
+
 0.9.5 Add Fixture.exclude global
 
 0.9.4 Fixes missing upstream commits in 0.9.3
