@@ -1,8 +1,41 @@
 import os
 
-from dbdiff.utils import get_absolute_path, get_model_names
+from dbdiff.utils import diff, get_absolute_path, get_model_names
 
 from django.contrib.auth.models import Group
+
+
+def test_diff_ignore_pk():
+    """With ignore_pk=True, records are matched by content, not pk."""
+    expected = {
+        'auth.group': {
+            1: {'name': 'testgroup', 'permissions': []},
+        },
+    }
+    result = {
+        'auth.group': {
+            99: {'name': 'testgroup', 'permissions': []},  # same content, diff pk
+        },
+    }
+    unexpected, missing, different = diff(expected, result, ignore_pk=True)
+    assert not unexpected and not missing and not different
+
+
+def test_diff_with_pk_by_default():
+    """With ignore_pk=False, same content but different pk yields missing/unexpected."""
+    expected = {
+        'auth.group': {
+            1: {'name': 'testgroup', 'permissions': []},
+        },
+    }
+    result = {
+        'auth.group': {
+            99: {'name': 'testgroup', 'permissions': []},
+        },
+    }
+    unexpected, missing, different = diff(expected, result, ignore_pk=False)
+    assert missing == {'auth.group': {1: {'name': 'testgroup', 'permissions': []}}}
+    assert unexpected == {'auth.group': {99: {'name': 'testgroup', 'permissions': []}}}
 
 
 def test_get_model_names():

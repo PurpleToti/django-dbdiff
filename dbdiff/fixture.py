@@ -46,7 +46,7 @@ class Fixture(object):
 
     exclude = dict()
 
-    def __init__(self, relative_path, models=None, database=None):
+    def __init__(self, relative_path, models=None, database=None, ignore_pk=False):
         """
         Instanciate a FixtureDiff on a database.
 
@@ -58,10 +58,15 @@ class Fixture(object):
 
         database should be the name of the database to use, `default` by
         default.
+
+        ignore_pk when True, matches records by field content instead of
+        primary key. Records with the same content but different pks
+        are considered equal.
         """
         self.path = get_absolute_path(relative_path)
         self.models = models if models else self.parse_models()
         self.database = database or 'default'
+        self.ignore_pk = ignore_pk
 
     def parse_models(self):
         """Return the list of models inside the fixture file."""
@@ -91,12 +96,15 @@ class Fixture(object):
 
             return len(line) - len(line.lstrip(' '))
 
-    def diff(self, exclude=None):
+    def diff(self, exclude=None, ignore_pk=None):
         """
         Diff the fixture against a datadump of fixture models.
 
         If passed, exclude should be a list of field names to exclude from
         being diff'ed.
+
+        ignore_pk when True, matches records by field content instead of
+        primary key. Defaults to the instance's ignore_pk attribute.
         """
         fh, dump_path = tempfile.mkstemp('_dbdiff')
 
@@ -109,9 +117,13 @@ class Fixture(object):
         with open(self.path, 'r') as e, open(dump_path, 'r') as r:
             expected, result = json.load(e), json.load(r)
 
+        if ignore_pk is None:
+            ignore_pk = self.ignore_pk
+
         unexpected, missing, different = diff(
             get_tree(expected, exclude_final),
             get_tree(result, exclude_final),
+            ignore_pk=ignore_pk,
         )
 
         if not unexpected and not missing and not diff:

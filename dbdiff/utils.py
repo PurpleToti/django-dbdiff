@@ -43,9 +43,18 @@ def _get_unexpected(expected, result):
     return unexpected
 
 
-def diff(expected, result):
-    """Return unexpected, missing and diff between expected and result."""
-    missing, diff = {}, {}
+def diff(expected, result, ignore_pk=False):
+    """Return unexpected, missing and diff between expected and result.
+
+    When ignore_pk is True, records are matched by their field values (content)
+    instead of primary key. Records with the same content but different pks
+    are considered matching.
+    """
+    missing, different = {}, {}
+
+    if ignore_pk:
+        unexpected, missing, different = _diff_by_content(expected, result)
+        return unexpected, missing, different
 
     unexpected = _get_unexpected(expected, result)
 
@@ -60,8 +69,8 @@ def diff(expected, result):
             if expected_fields == result_fields:
                 continue
 
-            diff.setdefault(model, {})
-            diff[model].setdefault(pk, {})
+            different.setdefault(model, {})
+            different[model].setdefault(pk, {})
 
             for expected_field, expected_value in expected_fields.items():
                 result_value = result_fields[expected_field]
@@ -69,11 +78,41 @@ def diff(expected, result):
                 if expected_value == result_value:
                     continue
 
-                diff[model][pk][expected_field] = (
+                different[model][pk][expected_field] = (
                     expected_value,
                     result_value
                 )
-    return unexpected, missing, diff
+    return unexpected, missing, different
+
+
+def _diff_by_content(expected, result):
+    """Diff by matching records on field content instead of primary key."""
+    unexpected, missing, different = {}, {}, {}
+
+    for model in set(expected.keys()) | set(result.keys()):
+        expected_list = list(expected.get(model, {}).items())
+        result_list = list(result.get(model, {}).items())
+        matched_result_indices = set()
+
+        for exp_pk, exp_fields in expected_list:
+            found = False
+            for i, (res_pk, res_fields) in enumerate(result_list):
+                if i in matched_result_indices:
+                    continue
+                if exp_fields == res_fields:
+                    matched_result_indices.add(i)
+                    found = True
+                    break
+            if not found:
+                missing.setdefault(model, {})
+                missing[model][exp_pk] = exp_fields
+
+        for i, (res_pk, res_fields) in enumerate(result_list):
+            if i not in matched_result_indices:
+                unexpected.setdefault(model, {})
+                unexpected[model][res_pk] = res_fields
+
+    return unexpected, missing, different
 
 
 def get_absolute_path(path):

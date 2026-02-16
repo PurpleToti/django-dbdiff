@@ -52,6 +52,7 @@ class DbdiffTestMixin(object):
         Fixture(
             self.dbdiff_expected,
             models=self.dbdiff_models,
+            ignore_pk=getattr(self, 'dbdiff_ignore_pk', False),
         ).assertNoDiff(
             exclude=self.dbdiff_exclude,
         )
